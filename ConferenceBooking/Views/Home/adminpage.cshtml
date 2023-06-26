@@ -1,0 +1,582 @@
+﻿
+@using ConferenceBooking.Models
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+@{
+    string mediaQuery = "@media (max-width: 768px) { .sidebar { width: 100%; padding: 20px; } .content { margin-left: 0; padding: 20px; } .navbar { padding: 10px; } }";
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        body {
+            padding-top: 70px;
+        }
+
+        .popup-form {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            width: 400px;
+        }
+
+        .sidebar {
+            background-color: #f8f9fa;
+            padding: 70px;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar .nav-link {
+            color: #000;
+            padding: 10px;
+            display: block;
+            border-bottom: none; /* Remove the border-bottom */
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar .nav-link:hover {
+            background-color: #e9ecef;
+            color: #000; /* Change text color on hover */
+        }
+
+        .sidebar .nav-link.active {
+            background-color: #fff;
+            color: #000;
+            font-weight: bold;
+            border-right: 4px solid #000; /* Add a border on the active link */
+        }
+
+        .content {
+            margin-left: 250px;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .table-actions {
+            white-space: nowrap;
+        }
+
+        thead {
+            background-color: #f8f9fa;
+        }
+
+        thead th {
+            color: #000;
+            font-weight: bold;
+            border-top: none;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn-add-meeting {
+            margin-left: 10px;
+        }
+
+       
+        }
+    </style>
+    <style>
+    @Html.Raw(mediaQuery)
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">Admin Panel</a>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="sidebar">
+                    <ul>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#dashboard">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#rooms">Rooms</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#users">Users</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="content">
+                    <div id="dashboard" class="page">
+                        <h2>Dashboard</h2>
+                        <button id="addMeetingButton" class="btn btn-primary btn-sm" style="margin-left: 10px">Add Meeting</button>
+
+                        <div class="container mt-4">
+                            @if (Model != null && Model.Count > 0)
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Sr. No</th>
+                                                <th>Title</th>
+                                                <th>Start Time</th>
+                                                <th>End Time</th>
+                                                <th>BookedBy</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var meeting in Model)
+                                            {
+                                                <tr>
+                                                    <td>@(Model.IndexOf(meeting) + 1)</td>
+                                                    <td>@meeting.MeetingTitle</td>
+                                                    <td>@meeting.StartTime.ToString("dd-MM-yyyy HH:mm:ss")</td>
+                                                    <td>@meeting.EndTime.ToString("dd-MM-yyyy HH:mm:ss")</td>
+                                                    <td class="table-actions">
+                                                        <button class="btn btn-primary btn-sm">Edit</button>
+                                                        <button class="btn btn-danger btn-sm">Delete</button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <p>No meetings found.</p>
+                            }
+                        </div>
+                    </div>
+
+                    <div id="rooms" class="page">
+                        <h2>Rooms</h2>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addRoomModal" onclick="openAddRoomPopup()" style="margin-left: 10px">Add Room</button>
+
+                        <div class="table-responsive mt-4">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Sr. No</th>
+                                        <th>Room Name</th>
+                                        <th>short_code</th>
+                                        <th>Capacity</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        int serialNumber = 1;
+                                    }
+
+                                    @if (ViewBag.Rooms != null)
+                                    {
+                                        foreach (var room in ViewBag.Rooms)
+                                        {
+                                            <tr>
+                                                <td>@serialNumber</td>
+                                                <td>@room.RoomName</td>
+                                                <td>@room.RoomCode</td>
+                                                <td>@room.Capacity</td>
+                                                <td>
+                                                    <button class="btn btn-primary btn-sm">Edit</button>
+                                                    <button class="btn btn-danger btn-sm">Delete</button>
+                                                </td>
+                                            </tr>
+                                            serialNumber++;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5">No rooms available</td>
+                                        </tr>
+                                    }
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="users" class="page">
+                        <h2>Users</h2>
+                        <button id="addUserButton" class="btn btn-primary btn-sm" style="margin-left: 10px">Add User</button>
+
+                        <div class="table-responsive mt-4">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Sr.no</th>
+                                        <th>User Name</th>
+                                        <th>Email</th>
+                                        <th>Position</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        int serial = 1;
+                                    }
+
+                                    @if (ViewBag.Users != null)
+                                    {
+                                        foreach (var user in ViewBag.Users)
+                                        {
+                                            <tr>
+                                                <td>@serial</td>
+                                                <td>@user.UserName</td>
+                                                <td>@user.email</td>
+                                                <td>@user.position</td>
+                                                <td>
+                                                    <button class="btn btn-primary btn-sm">Edit</button>
+                                                    <button class="btn btn-danger btn-sm">Delete</button>
+                                                </td>
+                                            </tr>
+                                            serial++;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5">No users available</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
+
+</body>
+</html>
+<!-- Modal for adding a user -->
+<div class="popup-form" id="addUserForm" style="display: none;">
+    <div class="card">
+        <h5 class="card-header">Add User</h5>
+        <div class="card-body">
+            <button type="button" class="btn-close" onclick="closePopup()" aria-label="Close"></button>
+            @using (Html.BeginForm("adminpage", "Home", FormMethod.Post, new { @class = "mt-4" }))
+            {
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label for="Name" class="form-label">Name</label>
+                    <input type="text" class="form-control" name="Name" id="Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="Email" class="form-label">Email</label>
+                    <input type="text" class="form-control" name="Email" id="Email" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="Password" class="form-label">Password</label>
+                    <input type="password" class="form-control" name="Password" id="Password" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="ConfirmPassword" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" name="ConfirmPassword" id="ConfirmPassword" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="Position" class="form-label">Position</label>
+                    <select name="Position" id="Position" class="form-control">
+                        <option value="">Select Position</option>
+                        @foreach (var position in ViewBag.PositionList as List<SelectListItem>)
+                        {
+                            <option value="@position.Value">@position.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div id="message" class="alert alert-dismissible" style="display: none;">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <strong></strong>
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+<div>
+
+    <!-- Modal for adding a room -->
+    <!-- Modal for adding a room -->
+    <div class="popup-form" id="addRoomForm" style="display: none;">
+        <div class="card">
+            <h5 class="card-header">Add Room</h5>
+            <div class="card-body">
+                <button type="button" id="closeForm" class="btn-close" onclick="closePopup()" aria-label="Close"></button>
+                @using (Html.BeginForm("AddRoom", "Home", FormMethod.Post, new { @class = "mt-4" }))
+                {
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label for="RoomName" class="form-label">Room Name</label>
+                        <input type="text" class="form-control" name="RoomName" id="RoomName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="RoomCode" class="form-label">Room Code</label>
+                        <input type="text" class="form-control" name="RoomCode" id="RoomCode" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="Capacity" class="form-label">Capacity</label>
+                        <input type="number" class="form-control" name="Capacity" id="Capacity" />
+                    </div>
+
+                    <div id="message" class="alert alert-dismissible" style="display: none;">
+                        <button type="button" class="close" data-dismiss="alert">&times;</button>
+                        <strong></strong>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary">Add</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function openAddRoomPopup() {
+        $("#addRoomForm").show();
+    }
+    $(document).ready(function () {
+        $("#closeForm").click(function () {
+            $(".popup-form").hide();
+        });
+    });
+</script>
+
+
+<div class="popup-form" id="addMeetingForm" style="display: none;">
+    <div class="card">
+        <h5 class="card-header">Add Meeting</h5>
+        <div class="card-body">
+            @using (Html.BeginForm("BookMeeting", "Home", FormMethod.Post))
+            {
+                <div class="mb-3">
+                    @Html.Label("Meeting Title", new { @class = "form-label" })
+                    @Html.TextBox("MeetingTitle", "", new { @class = "form-control", required = "required" })
+                </div>
+                <div class="mb-3">
+                    @Html.Label("Start Time", new { @class = "form-label" })
+                    <div class="input-group">
+                        @Html.TextBox("StartTime", "", new { @class = "form-control", required = "required", @id = "addMeetingStartTime", type = "datetime-local" })
+                    </div>
+                </div>
+                <div class="mb-3">
+                    @Html.Label("End Time", new { @class = "form-label" })
+                    <div class="input-group">
+                        @Html.TextBox("EndTime", "", new { @class = "form-control", required = "required", id = "addMeetingEndTime", type = "datetime-local" })
+                    </div>
+                </div>
+                <div class="mb-3">
+                    @Html.Label("Room", new { @class = "form-label" })
+                    @if (ViewBag.Rooms != null)
+                    {
+                        @Html.DropDownList("RoomId", new SelectList(ViewBag.Rooms, "RoomId", "RoomName"), new { @class = "form-control", required = "required", id = "addRoomDropdown" })
+                    }
+                    else
+                    {
+                        <p>No rooms available.</p>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Room Name:</label>
+                    <span id="addRoomName"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Capacity:</label>
+                    <span id="addRoomCapacity"></span>
+                </div>
+
+
+
+                <div class="mb-3">
+                    <input type="submit" value="Book Meeting" class="btn btn-primary" />
+                    <button id="closeForm" class="btn btn-secondary">Close</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+<script>
+
+    function closePopup() {
+        var addUserForm = document.getElementById("addUserForm");
+        addUserForm.style.display = "none";
+    }
+</script>
+<script>
+
+    $(document).ready(function () {
+        $("#addUserButton").click(function () {
+            $("#addUserForm").toggle();
+        });
+    });
+    $(document).ready(function () {
+        // Open the form when the button is clicked
+        $("#addMeetingButton").click(function () {
+            $(".popup-form").show();
+        });
+
+        // Close the form when the "Close" button is clicked
+        $("#closeForm").click(function () {
+            $(".popup-form").hide();
+        });
+    });
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const pages = document.querySelectorAll('.page');
+
+            function showPage(pageId) {
+                pages.forEach(function (page) {
+                    if (page.id === pageId) {
+                        page.style.display = 'block';
+                    } else {
+                        page.style.display = 'none';
+                    }
+                });
+            }
+
+            function setActiveLink(link) {
+                const navLinks = document.querySelectorAll('.nav-link');
+                navLinks.forEach(function (navLink) {
+                    if (navLink === link) {
+                        navLink.classList.add('active');
+                    } else {
+                        navLink.classList.remove('active');
+                    }
+                });
+            }
+
+            function navigateToPage(event) {
+                event.preventDefault();
+                const target = event.target;
+                const pageId = target.getAttribute('href').substring(1);
+
+                showPage(pageId);
+                setActiveLink(target);
+            }
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(function (navLink) {
+                navLink.addEventListener('click', navigateToPage);
+            });
+
+            // Show the default page (Dashboard)
+            showPage('dashboard');
+            setActiveLink(navLinks[0]);
+        });$(document).ready(function () {
+    // Attach change event handler to the room dropdown in the edit meeting form
+    $('#editRoomDropdown').change(function () {
+        var selectedRoomId = $(this).val(); // Get the selected room ID
+        var selectedRoom = findRoomById(selectedRoomId); // Find the room object from the list of rooms
+        if (selectedRoom) {
+            // Update the room name and capacity
+            $('#editRoomName').text(selectedRoom.RoomName);
+            $('#editRoomCapacity').text(selectedRoom.Capacity);
+        }
+    });
+
+    // Attach change event handler to the room dropdown in the add meeting form
+    $('#addRoomDropdown').change(function () {
+        var selectedRoomId = $(this).val(); // Get the selected room ID
+        var selectedRoom = findRoomById(selectedRoomId); // Find the room object from the list of rooms
+        if (selectedRoom) {
+            // Update the room name and capacity
+            $('#addRoomName').text(selectedRoom.RoomName);
+            $('#addRoomCapacity').text(selectedRoom.Capacity);
+        }
+    });
+
+    // Function to find a room object by its ID
+    function findRoomById(roomId) {
+        var rooms = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.Rooms)); // Get the list of rooms from ViewBag
+
+        for (var i = 0; i < rooms.length; i++) {
+            if (rooms[i].RoomId == roomId) {
+                return rooms[i];
+            }
+        }
+
+        return null;
+    }
+});
+
+
+    $(document).ready(function () {
+        // Attach change event handler to the room dropdown
+        $('#addRoomDropdown').change(function () {
+            var selectedRoomId = $(this).val(); // Get the selected room ID
+            var selectedRoom = findRoomById(selectedRoomId); // Find the room object from the list of rooms
+            if (selectedRoom) {
+                // Update the room name and capacity
+                $('#addRoomName').text(selectedRoom.RoomName);
+                $('#addRoomCapacity').text(selectedRoom.Capacity);
+            }
+        });
+
+        // Function to find a room object by its ID
+        function findRoomById(roomId) {
+            var rooms = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.Rooms)); // Get the list of rooms from ViewBag
+
+            for (var i = 0; i < rooms.length; i++) {
+                if (rooms[i].RoomId == roomId) {
+                    return rooms[i];
+                }
+            }
+
+            return null;
+        }
+    });
+</script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+
+</body>
+</html>
